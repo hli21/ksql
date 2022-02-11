@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.confluent.ksql.engine.rewrite.ExpressionTreeRewriter.Context;
 import io.confluent.ksql.execution.expression.tree.Expression;
 import io.confluent.ksql.execution.expression.tree.QualifiedColumnReferenceExp;
-import io.confluent.ksql.execution.expression.tree.UnqualifiedColumnReferenceExp;
 import io.confluent.ksql.execution.expression.tree.VisitParentExpressionVisitor;
 import java.util.Optional;
 
@@ -43,7 +42,8 @@ public class QueryExecutionUtil {
         final QualifiedColumnReferenceExp node,
         final Context<Void> ctx
     ) {
-      return Optional.of(new UnqualifiedColumnReferenceExp(node.getColumnName()));
+      return Optional.ofNullable(node);
+      //Optional.of(new UnqualifiedColumnReferenceExp(node.getColumnName()));
     }
   }
 }

@@ -54,10 +54,6 @@ public class PullQueryValidator implements QueryValidator {
           "Pull queries don't support output to sinks."
       ),
       Rule.of(
-          analysis -> !analysis.isJoin(),
-          "Pull queries don't support JOIN clauses."
-      ),
-      Rule.of(
           analysis -> !analysis.getWindowExpression().isPresent(),
           "Pull queries don't support WINDOW clauses."
       ),
