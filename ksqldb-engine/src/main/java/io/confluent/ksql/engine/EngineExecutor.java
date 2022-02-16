@@ -63,7 +63,6 @@ import io.confluent.ksql.physical.PhysicalPlan;
 import io.confluent.ksql.physical.pull.HARouting;
 import io.confluent.ksql.physical.pull.PullPhysicalPlan;
 import io.confluent.ksql.physical.pull.PullPhysicalPlanBuilder;
-import io.confluent.ksql.physical.pull.PullQueryQueuePopulator;
 import io.confluent.ksql.physical.pull.PullQueryResult;
 import io.confluent.ksql.physical.scalablepush.PushPhysicalPlan;
 import io.confluent.ksql.physical.scalablepush.PushPhysicalPlanBuilder;
@@ -106,6 +105,8 @@ import io.confluent.ksql.util.PushQueryMetadata.ResultType;
 import io.confluent.ksql.util.ScalablePushQueryMetadata;
 import io.confluent.ksql.util.TransientQueryMetadata;
 import io.vertx.core.Context;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -114,6 +115,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -225,6 +227,7 @@ final class EngineExecutor {
    * @param pullQueryMetrics JMX metrics
    * @return the rows that are the result of evaluating the pull query
    */
+  @SuppressWarnings("checkstyle:CommentsIndentation")
   PullQueryResult executeTablePullQuery(
       final ImmutableAnalysis analysis,
       final ConfiguredStatement<Query> statement,
@@ -246,7 +249,7 @@ final class EngineExecutor {
     final RoutingNodeType routingNodeType = routingOptions.getIsSkipForwardRequest()
         ? RoutingNodeType.REMOTE_NODE : RoutingNodeType.SOURCE_NODE;
 
-    PullPhysicalPlan plan = null;
+    final PullPhysicalPlan plan = null;
 
     try {
       // Do not set sessionConfig.getConfig to true! The copying is inefficient and slows down pull
@@ -256,29 +259,44 @@ final class EngineExecutor {
       final LogicalPlanNode logicalPlan = buildAndValidateLogicalPlan(
           statement, analysis, ksqlConfig, queryPlannerOptions, false);
 
-      // This is a cancel signal that is used to stop both local operations and requests
-      final CompletableFuture<Void> shouldCancelRequests = new CompletableFuture<>();
+      final String url = "jdbc:trino://example.net:8080/hive/sales";
+      final Properties properties = new Properties();
+      properties.setProperty("user", "test");
+      properties.setProperty("password", "secret");
+      properties.setProperty("SSL", "true");
+      final Connection connection = DriverManager.getConnection(url, properties);
 
-      plan = buildPullPhysicalPlan(
-          logicalPlan,
-          analysis,
-          queryPlannerOptions,
-          shouldCancelRequests
-      );
-      final PullPhysicalPlan physicalPlan = plan;
+      //String url = "jdbc:trino://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
+      //Connection connection = DriverManager.getConnection(url);
 
       final PullQueryQueue pullQueryQueue = new PullQueryQueue(analysis.getLimitClause());
-      final PullQueryQueuePopulator populator = () -> routing.handlePullQuery(
-          serviceContext,
-          physicalPlan, statement, routingOptions, physicalPlan.getOutputSchema(),
-          physicalPlan.getQueryId(), pullQueryQueue, shouldCancelRequests, consistencyOffsetVector);
-      final PullQueryResult result = new PullQueryResult(physicalPlan.getOutputSchema(), populator,
-          physicalPlan.getQueryId(), pullQueryQueue, pullQueryMetrics, physicalPlan.getSourceType(),
-          physicalPlan.getPlanType(), routingNodeType, physicalPlan::getRowsReadFromDataSource,
-          shouldCancelRequests, consistencyOffsetVector);
-      if (startImmediately) {
-        result.start();
-      }
+
+      // This is a cancel signal that is used to stop both local operations and requests
+      final CompletableFuture<Void> shouldCancelRequests = new CompletableFuture<>();
+      final PullQueryResult result;
+      result = null;
+
+/*
+ plan = buildPullPhysicalPlan(
+     logicalPlan,
+     analysis,
+     queryPlannerOptions,
+     shouldCancelRequests
+ );
+ final PullPhysicalPlan physicalPlan = plan;
+
+ //final PullQueryQueue pullQueryQueue = new PullQueryQueue(analysis.getLimitClause());
+ final PullQueryQueuePopulator populator = () -> routing.handlePullQuery(
+     serviceContext,
+     physicalPlan, statement, routingOptions, physicalPlan.getOutputSchema(),
+     physicalPlan.getQueryId(), pullQueryQueue, shouldCancelRequests, consistencyOffsetVector);
+ final PullQueryResult result = new PullQueryResult(physicalPlan.getOutputSchema(), populator,
+     physicalPlan.getQueryId(), pullQueryQueue, pullQueryMetrics, physicalPlan.getSourceType(),
+     physicalPlan.getPlanType(), routingNodeType, physicalPlan::getRowsReadFromDataSource,
+     shouldCancelRequests, consistencyOffsetVector);
+ if (startImmediately) {
+   result.start();
+*/
       return result;
     } catch (final Exception e) {
       if (plan == null) {
